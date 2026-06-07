@@ -8,5 +8,5 @@ in vec2 texcoord;
 layout(location = 0) out vec4 color;
 
 void main() {
-	color = texture(colortex0, texcoord);
+	color = 1 - texture(colortex0, texcoord);
 }
