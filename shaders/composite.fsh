@@ -22,46 +22,50 @@ void main() {
     float lum = dot(c.rgb, vec3(0.299, 0.587, 0.114));
     lum = pow(lum, 1.2);
 
-    //color grading
-    vec3 blueShadow  = vec3(0.75, 0.85, 1.30);
-    vec3 yellowLight = vec3(1.35, 1.20, 0.85);
+    // Color grading
+    vec3 blueShadow  = vec3(0.85, 0.92, 1.15);
+    vec3 yellowLight = vec3(1.20, 1.10, 0.90);
 
     vec3 grade = mix(blueShadow, yellowLight, lum);
 
-    c.rgb = mix(c.rgb, c.rgb * grade, 0.45);
+    c.rgb = mix(c.rgb, c.rgb * grade, 0.35);
 
-    // Warm horizon 
+    // Warm horizon, cool sky
     float gradient = texcoord.y;
 
     vec3 tint = mix(
-        vec3(1.06, 1.03, 0.95),
-        vec3(0.97, 1.00, 1.04),
+        vec3(1.04, 1.02, 0.96),
+        vec3(0.98, 1.00, 1.04),
         gradient
     );
 
     c.rgb *= tint;
 
-    // Bright area glow
+    // Subtle warm glow
     float glow = smoothstep(0.75, 1.0, lum);
-    c.rgb += glow * vec3(1.0, 0.92, 0.75) * 0.08;
+    c.rgb += glow * vec3(1.0, 0.92, 0.75) * 0.04;
 
-    // blomish
+    // Bright highlights
     float brightness = max(c.r, max(c.g, c.b));
 
-    if (brightness > 0.8) {
-        c.rgb += brightness * vec3(0.04, 0.035, 0.025);
+    if (brightness > 0.85) {
+        c.rgb += brightness * vec3(0.015, 0.012, 0.008);
     }
 
+    // Gentle moon / bright object boost
+    if (brightness > 0.9) {
+        float moonGlow = smoothstep(0.9, 1.0, brightness);
+        c.rgb += moonGlow * vec3(0.04, 0.06, 0.12);
+    }
+
+    // Night atmosphere
+    float nightMood = 1.0 - lum;
+    c.rgb += vec3(0.01, 0.02, 0.05) * nightMood;
+
     // Contrast
-    c.rgb = (c.rgb - 0.5) * 1.09 + 0.5;
+    c.rgb = (c.rgb - 0.5) * 1.08 + 0.5;
 
     c.rgb = clamp(c.rgb, 0.0, 1.0);
 
     color = c;
-    float moonBrightness = max(c.r, max(c.g, c.b));
-
-    if (moonBrightness > 0.8) {
-        float glow = (moonBrightness - 0.8) / 0.2;
-        c.rgb += glow * vec3(0.15, 0.20, 0.35);
-        }
 }
