@@ -10,12 +10,10 @@ layout(location = 0) out vec4 color;
 void main() {
     vec2 uv = texcoord * 2.0 - 1.0;
 
-    float strength = 0.08;
+    uv.x *= 1.0 + uv.y * uv.y * 0.01;
+    uv.y *= 1.0 + uv.x * uv.x * 0.01;
 
-    uv *= 1.0 + dot(uv, uv) * strength;
-
-    uv = uv * 0.4 + 0.4;
-
+    uv = uv * 0.5 + 0.5;
     vec4 c = texture(colortex0, uv);
 
     float lum = dot(c.rgb, vec3(0.299, 0.587, 0.114));
