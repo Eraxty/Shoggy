@@ -8,7 +8,15 @@ in vec2 texcoord;
 layout(location = 0) out vec4 color;
 
 void main() {
-    vec4 c = texture(colortex0, texcoord);
+    vec2 uv = texcoord * 2.0 - 1.0;
+
+    float strength = 0.08;
+
+    uv *= 1.0 + dot(uv, uv) * strength;
+
+    uv = uv * 0.4 + 0.4;
+
+    vec4 c = texture(colortex0, uv);
 
     float lum = dot(c.rgb, vec3(0.299, 0.587, 0.114));
     lum = pow(lum, 1.2);
