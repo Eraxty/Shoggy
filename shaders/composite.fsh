@@ -30,16 +30,7 @@ void main() {
 
     c.rgb = mix(c.rgb, c.rgb * grade, 0.35);
 
-    // Warm horizon, cool sky
-    float gradient = texcoord.y;
 
-    vec3 tint = mix(
-        vec3(1.04, 1.02, 0.96),
-        vec3(0.98, 1.00, 1.04),
-        gradient
-    );
-
-    c.rgb *= tint;
 
     // Subtle warm glow
     float glow = smoothstep(0.75, 1.0, lum);
