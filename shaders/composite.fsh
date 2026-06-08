@@ -1,6 +1,7 @@
 #version 330 compatibility
 
 uniform sampler2D colortex0;
+uniform vec3 skyColor;
 
 in vec2 texcoord;
 
@@ -22,13 +23,17 @@ void main() {
     float lum = dot(c.rgb, vec3(0.299, 0.587, 0.114));
     lum = pow(lum, 1.2);
 
-    // Color grading
-    vec3 blueShadow  = vec3(0.85, 0.92, 1.15);
-    vec3 yellowLight = vec3(1.20, 1.10, 0.90);
+    // Dynamic color grading based on time of day
+    float skyLuma = dot(skyColor, vec3(0.299, 0.587, 0.114));
+    float dayWeight = smoothstep(0.05, 0.25, skyLuma);
 
-    vec3 grade = mix(blueShadow, yellowLight, lum);
+    // Day: warm golden highlights, 
+    // Night: cool desaturated silver 
+    vec3 shadowColor    = mix(vec3(0.50, 0.55, 0.70), vec3(0.80, 0.88, 1.10), dayWeight);
+    vec3 highlightColor = mix(vec3(0.75, 0.85, 1.05), vec3(1.25, 1.12, 0.88), dayWeight);
 
-    c.rgb = mix(c.rgb, c.rgb * grade, 0.35);
+    vec3 grade = mix(shadowColor, highlightColor, lum);
+    c.rgb = mix(c.rgb, c.rgb * grade, 0.40);
 
 
 

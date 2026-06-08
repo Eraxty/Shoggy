@@ -13,8 +13,17 @@ in vec4 glcolor;
 layout(location = 0) out vec4 color;
 
 void main() {
-	color = texture(gtexture, texcoord) * glcolor;
-	color *= texture(lightmap, lmcoord);
+	
+	vec3 enhancedGlColor = pow(glcolor.rgb, vec3(1.35));
+
+	color = texture(gtexture, texcoord);
+	color.rgb *= enhancedGlColor;
+
+	vec2 adjustedLmcoord = lmcoord;
+	adjustedLmcoord.y = pow(lmcoord.y, 1.55);
+
+	color *= texture(lightmap, adjustedLmcoord);
+
 	if (color.a < alphaTestRef) {
 		discard;
 	}
