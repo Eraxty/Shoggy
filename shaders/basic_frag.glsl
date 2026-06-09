@@ -1,1 +1,0 @@
-color = texture(colortex0, texcoord);

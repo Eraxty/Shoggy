@@ -1,67 +1,94 @@
 #version 330 compatibility
 
+#include "/lib/shadowDistort.glsl"
+
 uniform sampler2D colortex0;
-uniform vec3 skyColor;
+uniform sampler2D colortex1;
+uniform sampler2D colortex2;
+uniform sampler2D depthtex0;
+uniform mat4 gbufferProjectionInverse;
+uniform mat4 shadowModelView;
+uniform mat4 shadowProjection;
+uniform sampler2D shadowtex0;
+uniform sampler2D shadowtex1;
+uniform sampler2D shadowcolor0;
+
+/*
+const int colortex0Format = RGB16;
+*/
+
+uniform vec3 shadowLightPosition;
+uniform mat4 gbufferModelViewInverse;
+
+const vec3 blocklightColor = vec3(1.0, 0.5, 0.08);
+const vec3 skylightColor = vec3(0.05, 0.15, 0.3);
+const vec3 sunlightColor = vec3(1.0);
+const vec3 ambientColor = vec3(0.1);
 
 in vec2 texcoord;
 
 /* RENDERTARGETS: 0 */
 layout(location = 0) out vec4 color;
 
+vec3 projectAndDivide(mat4 projectionMatrix, vec3 position){
+  vec4 homPos = projectionMatrix * vec4(position, 1.0);
+  return homPos.xyz / homPos.w;
+}
+
+ vec3 getShadow(vec3 shadowScreenPos){
+   float transparentShadow = step(shadowScreenPos.z, texture(shadowtex0, shadowScreenPos.xy).r); // sample the shadow map containing everything
+
+   // A value of 1.0 means 100% of sunlight is getting through.
+   if (transparentShadow == 1.0){
+     // No shadow at all - easy enough!
+     return vec3(1.0);
+   }
+
+   float opaqueShadow = step(shadowScreenPos.z, texture(shadowtex1, shadowScreenPos.xy).r); // sample the shadow map containing only opaque stuff
+
+   if(opaqueShadow == 0.0){
+     return vec3(0.0);
+   }
+
+   // 
+   vec4 shadowColor = texture(shadowcolor0, shadowScreenPos.xy);
+
+   // We use (1.0 - alpha) to get how much light is let through, and multiply that light by the color of the thing that's
+   // casting the shadow.
+   return shadowColor.rgb * (1.0 - shadowColor.a);
+ }
+
 void main() {
-    vec2 uv = texcoord * 2.0 - 1.0;
+  vec2 lightmap = texture(colortex1, texcoord).xy;
+  vec3 encodedNormal = texture(colortex2, texcoord).rgb;
+  vec3 normal = normalize((encodedNormal - 0.5) * 2.0);
+  vec3 lightVector = normalize(shadowLightPosition);
+  vec3 worldLightVector = mat3(gbufferModelViewInverse) * lightVector;
 
-    // Subtle screen curvature
-    uv.x *= 1.0 + uv.y * uv.y * 0.01;
-    uv.y *= 1.0 + uv.x * uv.x * 0.01;
+  color = texture(colortex0, texcoord);
+   color.rgb = pow(color.rgb, vec3(2.2));
 
-    uv = uv * 0.5 + 0.5;
-
-    vec4 c = texture(colortex0, uv);
-
-    // Luminance
-    float lum = dot(c.rgb, vec3(0.299, 0.587, 0.114));
-    lum = pow(lum, 1.2);
-
-    // Dynamic color grading based on time of day
-    float skyLuma = dot(skyColor, vec3(0.299, 0.587, 0.114));
-    float dayWeight = smoothstep(0.05, 0.25, skyLuma);
-
-    // Day: warm golden highlights, 
-    // Night: cool desaturated silver 
-    vec3 shadowColor    = mix(vec3(0.50, 0.55, 0.70), vec3(0.80, 0.88, 1.10), dayWeight);
-    vec3 highlightColor = mix(vec3(0.75, 0.85, 1.05), vec3(1.25, 1.12, 0.88), dayWeight);
-
-    vec3 grade = mix(shadowColor, highlightColor, lum);
-    c.rgb = mix(c.rgb, c.rgb * grade, 0.40);
-
-
-
-    // Subtle warm glow
-    float glow = smoothstep(0.75, 1.0, lum);
-    c.rgb += glow * vec3(1.0, 0.92, 0.75) * 0.04;
-
-    // Bright highlights
-    float brightness = max(c.r, max(c.g, c.b));
-
-    if (brightness > 0.85) {
-        c.rgb += brightness * vec3(0.015, 0.012, 0.008);
+    float depth = texture(depthtex0, texcoord).r;
+    if (depth == 1.0) {
+        return; 
     }
 
-    // Gentle moon / bright object boost
-    if (brightness > 0.9) {
-        float moonGlow = smoothstep(0.9, 1.0, brightness);
-        c.rgb += moonGlow * vec3(0.04, 0.06, 0.12);
-    }
+  vec3 ndcPos = vec3(texcoord.xy, depth) * 2.0 - 1.0; // normalized device coordinates (NDC); [-1.0, 1.0]
+  vec3 viewPos = projectAndDivide(gbufferProjectionInverse, ndcPos); // position in view space
+  vec3 feetPlayerPos = (gbufferModelViewInverse * vec4(viewPos, 1.0)).xyz; // position relative to the feet of the player
+  vec3 shadowViewPos = (shadowModelView * vec4(feetPlayerPos, 1.0)).xyz;
+  vec4 shadowClipPos = shadowProjection * vec4(shadowViewPos, 1.0);
+  shadowClipPos.z -= 0.001;
+  shadowClipPos.xyz = distortShadowClipPos(shadowClipPos.xyz);
+  vec3 shadowNdcPos = shadowClipPos.xyz / shadowClipPos.w;
+  vec3 shadowScreenPos = shadowNdcPos * 0.5 + 0.5;
 
-    // Night atmosphere
-    float nightMood = 1.0 - lum;
-    c.rgb += vec3(0.01, 0.02, 0.05) * nightMood;
+  vec3 shadow = getShadow(shadowScreenPos);
 
-    // Contrast
-    c.rgb = (c.rgb - 0.5) * 1.08 + 0.5;
+  vec3 blocklight = lightmap.x * blocklightColor;
+  vec3 skylight = lightmap.y * skylightColor;
+  vec3 ambient = ambientColor;
+  vec3 sunlight = sunlightColor * clamp(dot(worldLightVector, normal), 0.0, 1.0) * shadow;
 
-    c.rgb = clamp(c.rgb, 0.0, 1.0);
-
-    color = c;
+  color.rgb *= blocklight + skylight + ambient + sunlight;
 }

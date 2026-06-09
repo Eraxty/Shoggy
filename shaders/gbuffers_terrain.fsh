@@ -8,23 +8,22 @@ uniform float alphaTestRef = 0.1;
 in vec2 lmcoord;
 in vec2 texcoord;
 in vec4 glcolor;
+in vec3 normal;
 
-/* RENDERTARGETS: 0 */
+/* RENDERTARGETS: 0,1,2 */
 layout(location = 0) out vec4 color;
+layout(location = 1) out vec4 lightLevelData;
+layout(location = 2) out vec4 normalData;
 
 void main() {
-	
-	vec3 enhancedGlColor = pow(glcolor.rgb, vec3(1.35));
+    color = texture(gtexture, texcoord) * glcolor;
+    color *= texture(lightmap, lmcoord);
 
-	color = texture(gtexture, texcoord);
-	color.rgb *= enhancedGlColor;
+    lightLevelData = vec4(lmcoord, 0.0, 1.0);
 
-	vec2 adjustedLmcoord = lmcoord;
-	adjustedLmcoord.y = pow(lmcoord.y, 1.55);
+    normalData = vec4(normalize(normal) * 0.5 + 0.5, 1.0);
 
-	color *= texture(lightmap, adjustedLmcoord);
-
-	if (color.a < alphaTestRef) {
-		discard;
-	}
+    if (color.a < alphaTestRef) {
+        discard;
+    }
 }
